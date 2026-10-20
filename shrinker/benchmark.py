@@ -110,7 +110,7 @@ def evaluate(model: nn.Module, loader, device: str = "cpu") -> float:
 
 
 def measure(
-    model: nn.Module, example_input: Any, val_loader=None, device: str = "cpu", warmup: int = 10, runs: int = 50
+    model: nn.Module, example_input=None, val_loader=None, device: str = "cpu", warmup: int = 10, runs: int = 50
 ) -> Dict[str, Optional[float]]:
     try:
         flops = count_flops(model, example_input)
@@ -120,7 +120,7 @@ def measure(
         "params": count_parameters(model),
         "nonzero_params": count_nonzero_parameters(model),
         "size_mb": model_size_mb(model),
-        "latency_ms": measure_latency(model, example_input, warmup, runs, device),
+        "latency_ms": measure_latency(model, example_input, warmup, runs, device) if example_input is not None else None,
         "flops": flops,
         "accuracy": evaluate(model, val_loader, device) if val_loader is not None else None,
     }
@@ -157,8 +157,9 @@ def format_report(report: Dict[str, Dict[str, Optional[float]]]) -> str:
         rows.append(("non-zero params", f"{a['nonzero_params']:,}", f"{b['nonzero_params']:,}",
                      pct(a["nonzero_params"], b["nonzero_params"])))
     rows.append(("size (MB)", f"{a['size_mb']:.3f}", f"{b['size_mb']:.3f}", pct(a["size_mb"], b["size_mb"])))
-    speedup = a["latency_ms"] / b["latency_ms"] if b["latency_ms"] else float("inf")
-    rows.append(("latency (ms)", f"{a['latency_ms']:.3f}", f"{b['latency_ms']:.3f}", f"{speedup:.2f}x speed"))
+    if a["latency_ms"] is not None and b["latency_ms"] is not None:
+        speedup = a["latency_ms"] / b["latency_ms"] if b["latency_ms"] else float("inf")
+        rows.append(("latency (ms)", f"{a['latency_ms']:.3f}", f"{b['latency_ms']:.3f}", f"{speedup:.2f}x speed"))
     if a["flops"] is not None and b["flops"] is not None:
         rows.append(("MFLOPs", f"{a['flops'] / 1e6:.2f}", f"{b['flops'] / 1e6:.2f}", pct(a["flops"], b["flops"])))
     if a["accuracy"] is not None:
